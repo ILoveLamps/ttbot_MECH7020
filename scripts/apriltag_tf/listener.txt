@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+"""
+    04.21.20
+    Subscriber Node
+    - Hirdayesh Shrestha
+    - Matthew Postell
+    - Dhruv Patel
+"""
+
+import rospy
+import tf
+import math
+from tf.transformations import euler_from_quaternion
+
+
+def main():
+    """"""
+    """ Main program loop
+    """
+    """"""
+    rospy.init_node('aptag_sub')
+    listener = tf.TransformListener()
+
+    rate = rospy.Rate(10.0)
+    while not rospy.is_shutdown():
+        try:
+            (trans, rot) = listener.lookupTransform('base_footprint', 'tag_0', rospy.Time())
+            orientation_list = [rot[0], rot[1], rot[2], rot[3]]
+            (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
+
+            distance = math.sqrt(trans[0]**2 + trans[1]**2 + trans[2]**2)
+            print("Distance to tag :  \n {} \n".format(distance))
+            print("Heading :  \n {} \n".format(yaw))
+            print('************************')
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue
+        rate.sleep()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
+
+
