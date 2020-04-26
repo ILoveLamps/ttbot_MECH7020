@@ -3,6 +3,14 @@
     <words>
       <w>apriltag</w>
       <w>aptag</w>
+      <w>atan</w>
+      <w>odometry</w>
+      <w>portside</w>
+      <w>rosnode</w>
+      <w>ttbot</w>
+      <w>turtlebot</w>
+      <w>waypoint</w>
+      <w>waypoints</w>
     </words>
   </dictionary>
 </component>
