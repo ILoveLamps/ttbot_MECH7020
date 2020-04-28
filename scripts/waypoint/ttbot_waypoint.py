@@ -77,7 +77,7 @@ def ttbot_move():
         # # PUBLISHING
         pub.publish(twist)
         rate.sleep()
-
+from sensor_msgs.msg import LaserScan
 
 def ttbot_pid():
     """"""
