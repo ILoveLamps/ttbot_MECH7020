@@ -17,7 +17,7 @@
 import rospy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-# from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan
 from tf.transformations import euler_from_quaternion
 
 # # this is the custom message that I created

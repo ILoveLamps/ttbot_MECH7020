@@ -9,16 +9,11 @@
 
 import rospy
 import tf
-import math
-import numpy as np
 from ttbot_waypoint.msg import tag_array
 from rospy.numpy_msg import numpy_msg
 from apriltag_ros.msg import AprilTagDetectionArray
-
-
-#  # GLOBAL VARIABLES
-# tag_id = []
-# tag_quantity = 0
+# import math
+# import numpy as np
 
 
 def tag_qty_callback(msg):
@@ -28,7 +23,6 @@ def tag_qty_callback(msg):
         Also stores the tag ids
     """
     """"""
-    # global tag_id, tag_quantity
     tag_id = []
     tag_quantity = len(msg.detections)
 
@@ -49,20 +43,21 @@ def transform():
         Calculates heading and distance to tag from transformed data
     """
     """"""
-    distance = []
-    bearing = []
+    tag_x = []
+    tag_y = []
 
     if publishTagData.quantity > 0:
         for x in range(publishTagData.quantity):
             try:
                 tag_name = 'tag_' + str(publishTagData.id[x])
                 (trans, rot) = listener.lookupTransform('base_footprint', tag_name, rospy.Time())
-                temp_dist = math.sqrt(trans[0]**2 + trans[1]**2 + trans[2]**2)
-                distance.insert(x, temp_dist)
-
-                temp_bearing = math.atan2((trans[1]), (trans[0]))
-                temp_bearing = ((180 * temp_bearing) / math.pi)
-                bearing.insert(x, temp_bearing)
+                # temp_dist = math.sqrt(trans[0]**2 + trans[1]**2 + trans[2]**2)
+                # distance.insert(x, temp_dist)
+                tag_x.insert(x, trans[0])
+                tag_y.insert(x, trans[1])
+                # temp_bearing = math.atan2((trans[1]), (trans[0]))
+                # temp_bearing = ((180 * temp_bearing) / math.pi)
+                # bearing.insert(x, temp_bearing)
 
                 # print('************************')
                 # print("Distance to {} :  \n {} \n".format(tag_name, distance))
@@ -75,8 +70,8 @@ def transform():
         # print('NO TAGS FOUND')
 
     # print(bearing)
-    publishTagData.range = distance
-    publishTagData.bearing = bearing
+    publishTagData.x = tag_x
+    publishTagData.y = tag_y
 
     pub.publish(publishTagData)
 
