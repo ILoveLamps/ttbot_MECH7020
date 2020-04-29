@@ -43,7 +43,7 @@ def ttbot_move():
                 # print("Target = {},  Current = {}, Error = {}".format(theta_goal, yaw, e))
             else:
                 print("\nINITIAL ROTATION COMPLETE")
-                twist.angular.z = 0.0
+                twist.angular.z = 0.00001           # # non-zero to avoid divide by zero in EKF
                 STATE = 1
 
         elif STATE == 1:    # moving robot to waypoint
@@ -66,14 +66,16 @@ def ttbot_move():
                     twist.linear.x = 0.2                # # constant linear velocity
                 # print("DISTANCE TO TARGET = {}".format(dist))
             else:
-                twist.angular.z = 0.0
-                twist.linear.x = 0.0
+                twist.angular.z = 0.0000001
+                twist.linear.x = 0.0000001
                 print("\nYOU HAVE REACHED YOUR WAYPOINT")
                 STATE = 9
 
         elif STATE == 9:
             waypoint = waypoint + 1         # # Increment waypoint counter
             if waypoint > len(gx) - 1:      # # Checking if last waypoint crossed
+                twist.angular.z = 0.0
+                twist.linear.x = 0.0
                 print("ALL WAYPOINTS TRAVERSED")
             else:
                 STATE = 0                   # # Repeat State logic for new waypoint

@@ -17,14 +17,14 @@
 import rospy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-# from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan
 from tf.transformations import euler_from_quaternion
-from ttbot_waypoint.msg import ttbot_nparray
-from rospy.numpy_msg import numpy_msg
+
 
 # Modules Related to python and general programming
 import math
 import numpy as np
+
 
 
 def ekf_move():
@@ -33,20 +33,23 @@ def ekf_move():
 
     global x_t, P_t, bot_v, bot_w, bot_x, bot_y, bot_theta
 
-    # Initializing Node and Publisher
-    rospy.init_node('ekf_loc_node', anonymous=True)
-    pub = rospy.Publisher('/ekf_loc_node', numpy_msg(ttbot_nparray), queue_size=10)
+
+    # Initialzing Node and Publisher
+    rospy.init_node('ekf-loc-node', anonymous=True)
+    pub = rospy.Publisher('/ekf_loc', Twist, queue_size=10)
 
     # ------------------------
     #  Question : What will we publish to /ekf-loc topic
     # ------------------------
 
+    twist = Twist()
     rate = rospy.Rate(10)
+
     while not rospy.is_shutdown():
 
-        # ----------------------
-        # Dynamics Part of the EKF
-        # ----------------------
+    # ----------------------
+    # Dynamics Part of the EKF
+    # ----------------------
 
         G_t = np.array([    [ 1, 0, -(bot_v/bot_w)*(math.cos(bot_theta)) + (bot_v/bot_w)*(math.cos(bot_theta + bot_w*dt)) ],
                             [ 0, 1, -(bot_v/bot_w)*(math.sin(bot_theta)) + (bot_v/bot_w)*(math.sin(bot_theta + bot_w*dt)) ],
@@ -65,15 +68,27 @@ def ekf_move():
                             [V21, V22],
                             [0,    dt]      ])
 
+
         x_t = F_t.dot(x_t) + B_t
         P_t = (G_t.dot(P_t).dot(G_t.T)) + (V_t.dot(M_t).dot(V_t.T))
 
         print("\n ******* ******* ********* \n")
         print("Pose of Bot : {}".format(x_t))
 
+
+        twist.linear.x = x_t[0]
+        twist.linear.y = x_t[1]
+        twist.angular.z = x_t[2]
+
+
+
+
         # Publishing
-        pub.publish(x_t)
+        pub.publish(twist)
         rate.sleep()
+
+
+
 
 
 # ----------------------------
@@ -81,16 +96,15 @@ def ekf_move():
 # ----------------------------
 def control_listen():
 
-    # - Subscribes to the /cmd_vel or /custom_node topic
-    # - Needs to be listened every time step
+# - Subscribes to the /cmd_vel or /custom_node topic 
+# - Needs to be listened every time step
     
     rospy.Subscriber("/cmd_vel", Twist, callback_control)
 
-
 def callback_control(data):
 
-    # - This function starts after control_listen() is called
-    # - We want to call this every time step to get {v} and {w}
+# - This function starts after control_listen() is called
+# - We want to call this every time step to get {v} and {w}
 
     global bot_v, bot_w 
 
@@ -107,17 +121,17 @@ def callback_control(data):
 #       Odometry Listen 
 # ----------------------------
 def odom_listen():
-    # - Subscribes to the /odom topic from nav_msgs.msg
-    # - Only needs to be subscribed to once
+
+# - Subscribes to the /odom topic from nav_msgs.msg
+# - Only needs to be subscribed to once
 
     rospy.Subscriber("/odom", Odometry, callback_odo)
 
-
 def callback_odo(data):
     
-    # - This function starts after odom_listen() is called
-    # - We only want to call this once for the true position and
-    #   populate our state space vector ( x, y and theta )
+# - This function starts after odom_listen() is called
+# - We only want to call this once for the true position and 
+#   populate our state space vector ( x, y and theta )
 
     global bot_x, bot_y, bot_theta, x_t
     # # Getting the x, y and z from the data.pose.pose.position
@@ -133,6 +147,38 @@ def callback_odo(data):
     bot_theta = yaw
 
     x_t = np.array([ [bot_x], [bot_y], [bot_theta]])
+
+
+
+# ************************************************
+
+
+# ----------------------------
+#   EKF Prediction Listener
+# ----------------------------
+
+def ekf_sub_predict():
+    
+# - Subscribes to the custom topic to prepare the x_t for measurment step
+# - Needs to be listened every time step
+
+    rospy.Subscriber("/ekf_loc", Twist, callback_predict)
+
+def callback_predict(data):
+
+# - This function starts after ekf_sub_predict() is called
+# - We want to call this every time step to iterate on the ...
+#   value returned by the EKF Predict Step
+# { We don't want to rely on /odm after the first prediction }
+
+    global x_t, bot_x, bot_y, bot_theta
+
+    bot_x = data.linear.x
+    bot_y = data.linear.y
+    bot_theta = data.angular.z
+
+    x_t = np.array([ [bot_x], [bot_y], [bot_theta]])
+
 
 
 # *******************************
@@ -153,6 +199,7 @@ def callback_odo(data):
 
 
 """
+
 
 
 # ----------------------------
@@ -185,39 +232,32 @@ x_t = np.array([ [0], [0], [0]])
 
 P_t = 0.66 * np.identity(3)
 
-jump = 0
 
+jump = 0
 
 if __name__ == '__main__':
 
     try:
-        odom_listen()
+        if jump == 0:
+            # Listen to Odometry to get the state of the bot { X }
+            odom_listen()
+
+        else:
+            # custom topic listen from ekf
+            # still working on how to read this data from the publisher
+            ekf_sub_predict()
+
+
+        # Listen to CMD_VEL to get the command of movement for the bot { Velocity and Turning Rate }
+        control_listen()
+
+        # Carry out EKF once we have the necessary data 
         ekf_move()
+        
+        jump = 100
+    
     except rospy.ROSInterruptException:
         pass
+
     finally:
-        print("\n*** ROSNODE STOPPED BY USER ***")
-
-
-# if __name__ == '__main__':
-#
-#     try:
-#
-# 	if jump == 0:
-#             # Listen to Odometry to get the state of the bot { X }
-#             odom_listen()
-#         else:
-# 	    # custom topic listen from ekf
-# 	    # still working on how to read this data from the publisher
-#
-#         # Listen to CMD_VEL to get the command of movement for the bot { Velocity and Turning Rate }
-#         control_listen()
-#
-#         # Carry out EKF once we have the necessary data
-#         ekf_move()
-#
-#     except rospy.ROSInterruptException:
-#         pass
-#
-#     finally:
-#         print("\n ***** ROSNODE STOPPED BY USER ***** \n")
+        print("\n ***** ROSNODE STOPPED BY USER ***** \n")
