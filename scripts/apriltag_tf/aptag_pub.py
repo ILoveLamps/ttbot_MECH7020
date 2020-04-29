@@ -1,88 +1,97 @@
 #!/usr/bin/env python
 """
-    04.21.20
-    Broadcast Node
-        1. Camera Feed Frame (april-tag detection)
-        2. TurtleBot3 Frame (odometry)
+    Detect no. of tags, tag ids, and then transform tags
+    Publish id, range, bearing, quantity to /aptag_info topic
     - Hirdayesh Shrestha
     - Matthew Postell
     - Dhruv Patel
 """
 
 import rospy
-from nav_msgs.msg import Odometry
 import tf
-# from apriltag_ros.msg import AprilTagDetectionArray
-# from tf.transformations import euler_from_quaternion
-# from geometry_msgs.msg import Pose
+import math
+import numpy as np
+from ttbot_waypoint.msg import tag_array
+from rospy.numpy_msg import numpy_msg
+from apriltag_ros.msg import AprilTagDetectionArray
 
 
-# def ap_callback(msg):
-#     # orientation_q = msg.detections[-1].pose.pose.pose.orientation
-#     # orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
-#     # (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
-#
-#     trans = msg.detections[-1].pose.pose.pose.position
-#     orient = msg.detections[-1].pose.pose.pose.orientation
-#
-#     br = tf.TransformBroadcaster()
-#     br.sendTransform((trans.x, trans.y, trans.z),
-#                      (orient.x, orient.y, orient.z, orient.w),
-#                      rospy.Time.now(),
-#                      "camera",
-#                      "base_footprint")
+#  # GLOBAL VARIABLES
+# tag_id = []
+# tag_quantity = 0
 
 
-# def ap_listen():
-#     """"""
-#     """
-#         listens to /tag_detections published by apriltag_ros
-#     """
-#     """"""
-#     rospy.Subscriber('/tag_detections', AprilTagDetectionArray, ap_callback)
-
-
-def base_footprint_listen():
+def tag_qty_callback(msg):
     """"""
     """ 
-        Listens to base_footprint from /odom
+        Determines how many tags exist from /tag_detections
+        Also stores the tag ids
     """
     """"""
-    rospy.Subscriber('/odom', Odometry, base_footprint_callback)
+    # global tag_id, tag_quantity
+    tag_id = []
+    tag_quantity = len(msg.detections)
+
+    if tag_quantity > 0:
+        for x in range(tag_quantity):
+            tag_id.insert(x, msg.detections[x].id[0])
+            # publishTagData.id.insert(x, tag_id[x])
+            # print('tag_{}'.format(tag_id[x]))
+
+    publishTagData.id = tag_id                  # # float64 list of ids
+    publishTagData.quantity = tag_quantity      # # int64 number of quantity
+    # print(tag_id)
 
 
-def base_footprint_callback(msg):
+def transform():
     """"""
     """ 
-        Broadcasts base_footprint
+        Calculates heading and distance to tag from transformed data
     """
     """"""
-    trans = msg.pose.pose.position
-    orient = msg.pose.pose.orientation
+    distance = []
+    bearing = []
 
-    br = tf.TransformBroadcaster()
-    br.sendTransform((trans.x, trans.y, trans.z),
-                     (orient.x, orient.y, orient.z, orient.w),
-                     rospy.Time.now(),
-                     "camera",
-                     "base_footprint")
+    if publishTagData.quantity > 0:
+        for x in range(publishTagData.quantity):
+            try:
+                tag_name = 'tag_' + str(publishTagData.id[x])
+                (trans, rot) = listener.lookupTransform('base_footprint', tag_name, rospy.Time())
+                temp_dist = math.sqrt(trans[0]**2 + trans[1]**2 + trans[2]**2)
+                distance.insert(x, temp_dist)
+
+                temp_bearing = math.atan2((trans[1]), (trans[0]))
+                temp_bearing = ((180 * temp_bearing) / math.pi)
+                bearing.insert(x, temp_bearing)
+
+                # print('************************')
+                # print("Distance to {} :  \n {} \n".format(tag_name, distance))
+                # print("Heading to {}:  \n {}".format(tag_name, bearing))
+                # print('************************')
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                pass
+    else:
+        pass
+        # print('NO TAGS FOUND')
+
+    # print(bearing)
+    publishTagData.range = distance
+    publishTagData.bearing = bearing
+
+    pub.publish(publishTagData)
 
 
 if __name__ == '__main__':
-    """"""
-    """ 
-        Main program loop
-    """
-    """"""
-    rospy.init_node('aptag_pub')
+    rospy.init_node('aptag_sub')
+    rospy.Subscriber('/tag_detections', AprilTagDetectionArray, tag_qty_callback)
 
-    rate = rospy.Rate(10)
+    pub = rospy.Publisher('/aptag_info', numpy_msg(tag_array), queue_size=10)
+    publishTagData = tag_array()
+
+    listener = tf.TransformListener()
+
+    r = rospy.Rate(10.0)
     while not rospy.is_shutdown():
-        try:
-            # ap_listen()
-            base_footprint_listen()
-        except rospy.ROSInterruptException:
-            pass
-        rate.sleep()
-
+        transform()
+    r.sleep()
 
