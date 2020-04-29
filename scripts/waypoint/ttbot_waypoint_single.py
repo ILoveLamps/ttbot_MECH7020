@@ -29,7 +29,7 @@ def ttbot_move():
     global STATE, e, dist
 
     pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-    rospy.init_node('ttbot_waypoint', anonymous=True)
+    rospy.init_node('ttbot_waypoint_single', anonymous=True)
 
     twist = Twist()
     rate = rospy.Rate(10)
