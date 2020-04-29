@@ -13,13 +13,13 @@
 
 import rospy
 import numpy as np
-from ttbot_waypoint.msg import ttbot_nparray    # # this is the custom message that I created
+from ttbot_waypoint.msg import tag_array    # # this is the custom message that I created
 from rospy.numpy_msg import numpy_msg
 
 
 def np_array_pub():
     rospy.init_node('nparray_pub', anonymous=True)
-    pub = rospy.Publisher('/nparray_topic', numpy_msg(ttbot_nparray), queue_size=10)
+    pub = rospy.Publisher('/nparray_topic', numpy_msg(tag_array), queue_size=10)
 
     r = rospy.Rate(10)
     while not rospy.is_shutdown():
